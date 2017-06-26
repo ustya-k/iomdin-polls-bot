@@ -1,4 +1,3 @@
-import requests
 import json
 import telebot
 import conf
@@ -23,11 +22,21 @@ global new_question
 new_question = {"question_id": None,"name": None, "media": None, "question": None,"answers": None, "isOpen": None}
 
 
-@bot.message_handler(commands=['start', 'help'])
+@bot.message_handler(commands=['start'])
 def send_welcome(message):
 	bot.send_message(message.chat.id, "Здравствуйте! Это бот, который просит вас ответить на вопрос #чтозапредмет")
 	bot.send_message(message.chat.id, "Все вопросы были составлены Борисом Иомдиным (vk.com/iomdin)")
-	bot.send_message(message.chat.id, "Ещё бот умеет показывать вам статитстику для вопросов, на которые вы уже ответили /stats")
+	bot.send_message(message.chat.id, "Ещё бот умеет показывать вам статистику для вопросов, на которые вы уже ответили /stats")
+	bot.send_message(message.chat.id, "Хотите поучаствовать в опросе? /new_question")
+
+
+@bot.message_handler(commands=['help'])
+def send_help(message):
+	bot.send_message(message.chat.id, "Это бот, который просит вас ответить на вопрос #чтозапредмет")
+	bot.send_message(message.chat.id, "Чтобы поучаствовать в опросе, нажмите /new_question")
+	bot.send_message(message.chat.id, "Бот умеет показывать вам статистику для вопросов, на которые вы уже ответили /stats")
+	bot.send_message(message.chat.id, "Если на вопрос ответило менее 40 человек, будут показаны результаты, полученные автором опросов.")
+	bot.send_message(message.chat.id, "Все вопросы были составлены Борисом Иомдиным (vk.com/iomdin)")
 
 
 @bot.message_handler(commands=['new_question'])
@@ -39,7 +48,7 @@ def ask_question(message):
 				bot.send_document(message.chat.id, el)
 			except:
 				bot.send_photo(message.chat.id, el)
-		keyboard = types.ReplyKeyboardMarkup()
+		keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True)
 		for el in answers:
 			keyboard.add(types.KeyboardButton(el))
 
@@ -60,7 +69,7 @@ def get_statistics(message):
 	else:
 		titles = get_questions_titles(questions.columns.tolist())
 		question = 'Выберите вопрос:\n'
-		keyboard = types.ReplyKeyboardMarkup()
+		keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True)
 		for column in questions.columns:
 			keyboard.add(types.KeyboardButton(column))
 			question += '%s %s\n' % (column, titles[column])
@@ -74,7 +83,7 @@ def get_statistics_for_question(message):
 		res = re.search('^(.*?) ([.0-9]*)$', result)
 		answer, percentage = res.group(1), res.group(2)
 		percentage = float(percentage) * 100
-		line = '%s %d' % (answer, int(percentage)) 
+		line = '%s %d' % (answer, int(percentage))
 		bot.send_message(message.chat.id, line + '%')
 	bot.send_message(message.chat.id, 'Вы хотите поучаствовать ещё в одном опросе? /new_question')
 	bot.send_message(message.chat.id, 'Или узнать статистику? /stats')
@@ -96,8 +105,6 @@ def get_answer(message):
 		bot.register_next_step_handler(answer, get_answer)
 	else:
 		save_answer(message.text, message.chat.id, new_question['question_id'])
-		bot.send_message(message.chat.id, 'Хотите ещё вопрос? /new_question')
-		bot.send_message(message.chat.id, 'Можно посмотреть статистику /stats')
 
 
 def add_user(chat_id, users):
@@ -107,9 +114,11 @@ def add_user(chat_id, users):
 
 
 def save_answer(answer, chat_id, question_id):
-	users = pd.read_csv('users.csv', index_col='user_id')  
+	users = pd.read_csv('users.csv', index_col='user_id')
 	users.ix[chat_id, str(question_id)] = answer
 	users.to_csv('users.csv')
+	bot.send_message(chat_id, 'Хотите ещё вопрос? /new_question')
+	bot.send_message(chat_id, 'Можно посмотреть статистику /stats')
 
 
 def get_question_results(number):
@@ -161,7 +170,7 @@ def get_question(chat_id):
 		question = random.choice(polls)
 		global new_question
 		new_question = question
-		return question['media'], question['question'], question['answers'], question['question_id'] 
+		return question['media'], question['question'], question['answers'], question['question_id']
 	else:
 		no_more_questions = 'Ура! Вы поучаствовали во всех опросах. Не хотите посмотреть статистику? /stats'
 		return None, no_more_questions, None, None
